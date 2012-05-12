@@ -1,12 +1,15 @@
 module RailsAuditor #:nodoc:
-  class GemfileAuditor
+  class Audit
     class GemSpecification
       
-      attr_reader :name, :version
+      attr_reader :name, :version, :git_repository, :git_branch
       
       def initialize(name, options = {})
         @name = name
-        @version = options[:version]
+        
+        @version        = options[:version]
+        @git_repository = options[:git]
+        @git_branch     = options[:branch]
       end
       
       def ==(other_gem)

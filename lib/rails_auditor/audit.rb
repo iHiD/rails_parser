@@ -1,3 +1,5 @@
+require 'rails_auditor/audit/gem_specification'
+
 module RailsAuditor
   class Audit
     
