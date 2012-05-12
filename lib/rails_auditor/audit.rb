@@ -1,7 +1,7 @@
 module RailsAuditor
   class Audit
     
-    attr_reader :application_path
+    attr_accessor :application_path, :rails_version, :gems
     
     def initialize(application_path)
       @application_path = application_path
