@@ -27,94 +27,40 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 =end
 
 class Sexp
-
-  # return the line number of a sexp node.
-  #
-  #     s(:@ident, "test", s(2, 12)
-  #       => 2
-  def line
-    if [:def, :defs, :command, :command_call, :call, :fcall, :method_add_arg, :method_add_block,
-      :var_ref, :vcall, :const_ref, :const_path_ref, :class, :module, :if, :unless, :elsif, :ifop, :binary,
-      :alias, :symbol_literal, :symbol, :aref].include? sexp_type
-      self[1].line
-    elsif :array == sexp_type
-      array_values.first.line
-    else
-      self.last.first if self.last.is_a? Array
-    end
-  end
-
-  # return child nodes of a sexp node.
-  #
-  # @return [Array] child nodes.
+  
+  #####################
+  #####################
+  # Parsing functions #
+  #####################
+  #####################
+  
   def children
-    find_all { | sexp | Sexp === sexp }
+    find_all{|sexp| Sexp === sexp}
   end
-
-  # recursively find all child nodes, and yeild each child node.
-  def recursive_children
-    children.each do |child|
-      yield child
-      child.recursive_children { |c| yield c }
-    end
-  end
-
-  # grep all the recursive child nodes with conditions, and yield each match node.
-  #
-  # @param [Hash] options grep conditions
-  #
-  # options is the grep conditions, like
-  #
-  #     :sexp_type => :call,
-  #     :subject => "Post",
-  #     :message => ["find", "new"]
-  #     :to_s => "devise"
-  #
-  # the condition key is one of :sexp_type, :subject, :message, :to_s,
-  # the condition value can be Symbol, Array or Sexp.
-  def grep_nodes(options)
-    sexp_type = options[:sexp_type]
-    subject = options[:subject]
-    message = options[:message]
-    to_s = options[:to_s]
+  
+  # Recursively finds all children nodes.
+  # If there is a block then yeild it for each item
+  def descendants(&block)
     
-    self.recursive_children do |child|
-      if (!sexp_type || (sexp_type.is_a?(Array) ? sexp_type.include?(child.sexp_type) : sexp_type == child.sexp_type)) &&
-         (!subject || (subject.is_a?(Array) ? subject.include?(child.subject.to_s) : subject == child.subject.to_s)) &&
-         (!message || (message.is_a?(Array) ? message.include?(child.message.to_s) : message == child.message.to_s)) &&
-         (!to_s || (to_s.is_a?(Array) ? to_s.include?(child.to_s) : to_s == child.to_s))
-        yield child
+    d = []
+    children.each do |descendant|
+      if block_given? 
+        yield descendant
+        descendant.descendants &block
+      else
+        d << descendant
+        d += descendant.descendants
       end
     end
+    
+    return d
   end
-
-  # grep all the recursive child nodes with conditions, and yield the first match node.
-  #
-  # @param [Hash] options grep conditions
-  #
-  # options is the grep conditions, like
-  #
-  #     :sexp_type => :call,
-  #     :subject => s(:const, Post),
-  #     :message => [:find, :new]
-  #
-  # the condition key is one of :sexp_type, :subject, :message, and to_s,
-  # the condition value can be Symbol, Array or Sexp.
-  def grep_node(options)
-    result = nil
-    grep_nodes(options) { |node| result = node; break; }
-    result
-  end
-
-  # grep all the recursive child nodes with conditions, and get the count of match nodes.
-  #
-  # @param [Hash] options grep conditions
-  # @return [Integer] the count of metch nodes
-  def grep_nodes_count(options)
-    count = 0
-    grep_nodes(options) { |node| count += 1 }
-    count
-  end
+  
+  ###########################
+  ###########################
+  # Node Property functions #
+  ###########################
+  ###########################
 
   # Get subject node.
   #
@@ -137,6 +83,519 @@ class Sexp
     when :method_add_arg, :method_add_block
       self[1].subject
     end
+  end
+
+  # Get the message node.
+  #
+  #     s(:command,
+  #       s(:@ident, "has_many", s(1, 0)),
+  #       s(:args_add_block,
+  #         s(:args_add, s(:args_new),
+  #           s(:symbol_literal, s(:symbol, s(:@ident, "projects", s(1, 10))))
+  #         ),
+  #         false
+  #       )
+  #     )
+  #         => s(:@ident, "has_many", s(1, 0)),
+  #
+  # @return [Symbol] message node
+  def message
+    case sexp_type
+    when :command, :fcall
+      self[1]
+    when :binary
+      self[2]
+    when :command_call, :field, :call
+      self[3]
+    when :method_add_arg, :method_add_block
+      self[1].message
+    end
+  end
+
+  # To object.
+  #
+  #     s(:array,
+  #       s(:args_add,
+  #         s(:args_add, s(:args_new), s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "first_name", s(1, 2))))),
+  #         s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "last_name", s(1, 16))))
+  #       )
+  #     )
+  #         => ["first_name", "last_name"]
+  #
+  # @return [Object]
+  def to_object
+    case sexp_type
+    when :array
+      if nil == self[1]
+        []
+      else
+        arguments.all.map(&:to_s)
+      end
+    else
+      to_s
+    end
+  end
+
+  # to_s.
+  #
+  # @return [String] to_s
+  def to_s
+    case sexp_type
+    when :string_literal, :xstring_literal, :string_content, :const_ref, :symbol_literal, :symbol,
+         :args_add_block, :var_ref, :vcall, :var_field,
+         :@ident, :@tstring_content, :@const, :@ivar, :@kw, :@gvar, :@cvar
+      self[1].to_s
+    when :string_add
+      if s(:string_content) == self[1]
+        self[2].to_s
+      else
+        self[1].to_s
+      end
+    when :args_add
+      if s(:args_new) == self[1]
+        self[2].to_s
+      else
+        self[1].to_s
+      end
+    when :qwords_add
+      if s(:qwords_new) == self[1]
+        self[2].to_s
+      else
+        self[1].to_s
+      end
+    when :const_path_ref
+      "#{self[1]}::#{self[2]}"
+    when :@label
+      self[1].to_s[0..-2]
+    when :aref
+      "#{self[1]}[#{self[2]}]"
+    when :call, :field
+      "#{self.subject}.#{self.message}"
+    else
+      ""
+    end
+  end
+  
+  #######################
+  #######################
+  # Searching functions #
+  #######################
+  #######################
+  
+  # search all descendants with conditions, and either yield or return each matched node.
+  #
+  # @param [Hash] options search conditions
+  #
+  # options is the search conditions, like
+  #
+  #     :sexp_type => :call,
+  #     :subject => "Post",
+  #     :message => ["find", "new"]
+  #     :to_s => "devise"
+  #
+  # the condition key is one of :sexp_type, :subject, :message, :to_s,
+  # the condition value can be Symbol, Array or Sexp.
+  def find_nodes(options, &block) 
+    conditions = _options_to_conditional(options)
+    
+    if block_given?
+      self.descendants.each do |descendant|
+        yield(descendant) if conditions.call(descendant)
+      end
+    else
+      self.descendants.find_all do |descendant|
+        conditions.call(descendant)
+      end
+    end
+  end
+
+  # Searches nodes as per find_nodes, and returns the first found
+  def find_node(options)
+    result = nil
+    find_nodes(options) { |node| result = node; break; }
+    result
+  end
+
+  # Searches nodes as per find_nodes, but stops searching the tree after finding a node
+  # For example, with the data:
+  #
+  # gem "gem1"
+  # group "group1" do 
+  #   gem "gem2"
+  # end
+  # gem "gem3"
+  #
+  # find_first_nodes(:sexp_type => :call, :message => ["gem", "group"])
+  # -> [gem1, group1, gem3]
+  def find_first_nodes(options, &block)
+    nodes = []
+    conditions = _options_to_conditional(options)
+    
+    self.children.each do |child|
+      
+      if conditions.call(child)
+        if block_given?
+          yield(child) 
+        else
+          nodes << child
+        end
+        break
+      else
+        if block_given?
+          child.find_first_nodes(options, &block)
+        else
+          nodes += child.find_first_nodes(options)
+        end
+      end
+    end
+    nodes
+  end
+  
+  ###########################
+  ###########################
+  # Specific node functions #
+  ###########################
+  ###########################
+  
+  # Get arguments node.
+  #
+  #     s(:command,
+  #       s(:@ident, "resources", s(1, 0)),
+  #       s(:args_add_block,
+  #         s(:args_add, s(:args_new),
+  #           s(:symbol_literal, s(:symbol, s(:@ident, "posts", s(1, 11))))
+  #         ), false
+  #       )
+  #     )
+  #         => s(:args_add_block,
+  #              s(:args_add, s(:args_new),
+  #                s(:symbol_literal, s(:symbol, s(:@ident, "posts", s(1, 11))))
+  #              ), false
+  #            )
+  #
+  # @return [Sexp] arguments node
+  def arguments
+    case sexp_type
+    when :command
+      self[2]
+    when :command_call
+      self[4]
+    when :method_add_arg
+      self[2].arguments
+    when :method_add_block
+      self[1].arguments
+    when :arg_paren
+      self[1]
+    when :array
+      self
+    end
+  end
+
+  # Get only argument for binary.
+  #
+  #     s(:binary,
+  #       s(:var_ref, s(:@ident, "user", s(1, 0))),
+  #       :==,
+  #       s(:var_ref, s(:@ident, "current_user", s(1, 8)))
+  #     )
+  #         => s(:var_ref, s(:@ident, "current_user", s(1, 8)))
+  #
+  # @return [Sexp] argument node
+  def argument
+    if :binary == sexp_type
+      self[3]
+    end
+  end
+
+  # Get all arguments.
+  #
+  #     s(:args_add_block,
+  #       s(:args_add,
+  #         s(:args_add, s(:args_new), s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "hello", s(1, 6))))),
+  #         s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "world", s(1, 15))))
+  #       ), false
+  #     )
+  #         => [
+  #              s(:args_add, s(:args_new), s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "hello", s(1, 6))))),
+  #              s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "world", s(1, 15))))
+  #            ]
+  #
+  # @return [Array] all arguments
+  def values
+    nodes = []
+    case sexp_type
+    when :args_add_block, :array
+      if self[1].sexp_type == :args_new
+        nodes << self[2]
+      else
+        node = self[1]
+        while true
+          if [:args_add, :args_add_star].include? node.sexp_type
+            nodes.unshift node[2]
+            node = node[1]
+          elsif :args_new == node.sexp_type
+            break
+          end
+        end
+      end
+    end
+    nodes
+  end
+
+  # Get the hash keys.
+  #
+  #     s(:hash,
+  #       s(:assoclist_from_args,
+  #         s(
+  #           s(:assoc_new, s(:@label, "first_name:", s(1, 1)), s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "Richard", s(1, 14))))),
+  #           s(:assoc_new, s(:@label, "last_name:", s(1, 24)), s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "Huang", s(1, 36)))))
+  #         )
+  #       )
+  #     )
+  #         => ["first_name", "last_name"]
+  #
+  # @return [Array] hash keys
+  def hash_keys
+    pair_nodes = case sexp_type
+                 when :bare_assoc_hash
+                   self[1]
+                 when :hash
+                   self[1][1]
+                 else
+                 end
+    if pair_nodes
+      keys = []
+      pair_nodes.size.times do |i|
+        keys << pair_nodes[i][1].to_s
+      end
+      keys
+    end
+  end
+
+  # Get the hash values.
+  #
+  #     s(:hash,
+  #       s(:assoclist_from_args,
+  #         s(
+  #           s(:assoc_new, s(:@label, "first_name:", s(1, 1)), s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "Richard", s(1, 14))))),
+  #           s(:assoc_new, s(:@label, "last_name:", s(1, 24)), s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "Huang", s(1, 36)))))
+  #         )
+  #       )
+  #     )
+  #         => [
+  #              s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "Richard", s(1, 14)))),
+  #              s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "Huang", s(1, 36))))
+  #            ]
+  #
+  # @return [Array] hash values
+  def hash_values
+    pair_nodes = case sexp_type
+                 when :bare_assoc_hash
+                   self[1]
+                 when :hash
+                   self[1][1]
+                 else
+                 end
+    if pair_nodes
+      values = []
+      pair_nodes.size.times do |i|
+        values << pair_nodes[i][2]
+      end
+      values
+    end
+  end
+
+  # Get hash value node.
+  #
+  #     s(:hash,
+  #       s(:assoclist_from_args,
+  #         s(
+  #           s(:assoc_new, s(:@label, "first_name:", s(1, 1)), s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "Richard", s(1, 14))))),
+  #           s(:assoc_new, s(:@label, "last_name:", s(1, 24)), s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "Huang", s(1, 36)))))
+  #         )
+  #       )
+  #     )
+  #         => s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "Richard", s(1, 14))))
+  #
+  # @return [Sexp] hash value node
+  def hash_value(key)
+    pair_nodes = case sexp_type
+                 when :bare_assoc_hash
+                   self[1]
+                 when :hash
+                   self[1][1]
+                 else
+                 end
+    if pair_nodes
+      pair_nodes.size.times do |i|
+        if key == pair_nodes[i][1].to_s
+          return pair_nodes[i][2]
+        end
+      end
+    end
+    nil
+  end
+
+  # Get the array values.
+  #
+  #     s(:array,
+  #       s(:args_add,
+  #         s(:args_add, s(:args_new), s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "first_name", s(1, 2))))),
+  #         s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "last_name", s(1, 16))))
+  #       )
+  #     )
+  #         => [
+  #              s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "first_name", s(1, 2)))),
+  #              s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "last_name", s(1, 16))))
+  #            ]
+  #
+  # @return [Array] array values
+  def array_values
+    
+    if :array == sexp_type
+      if nil == self[1]
+        []
+      elsif :qwords_add == self[1].sexp_type
+        self[1].array_values
+      else
+        arguments.values
+      end
+    elsif :qwords_add
+      values = []
+      node = self
+      
+      while true # ???
+        if :qwords_add == node.sexp_type
+          values.unshift node[2]
+          node = node[1]
+        elsif :qwords_new == node.sexp_type
+          break
+        end
+      end
+      values
+    end
+  end
+
+  # Get body node.
+  #
+  #     s(:class,
+  #       s(:const_ref, s(:@const, "User", s(1, 6))),
+  #       nil,
+  #       s(:bodystmt,
+  #         s(:stmts_add, s(:stmts_new),
+  #           s(:def,
+  #             s(:@ident, "login", s(1, 16)),
+  #             s(:params, nil, nil, nil, nil, nil),
+  #             s(:bodystmt, s(:stmts_add, s(:stmts_new), s(:void_stmt)), nil, nil, nil)
+  #           )
+  #         ), nil, nil, nil
+  #       )
+  #     )
+  #         => s(:bodystmt,
+  #              s(:stmts_add, s(:stmts_new),
+  #                s(:def,
+  #                  s(:@ident, "login", s(1, 16)),
+  #                  s(:params, nil, nil, nil, nil, nil),
+  #                  s(:bodystmt, s(:stmts_add, s(:stmts_new), s(:void_stmt)), nil, nil, nil)
+  #                )
+  #              ), nil, nil, nil
+  #            )
+  #
+  # @return [Sexp] body node
+  def body
+    case sexp_type
+    when :else
+      self[1]
+    when :module, :if, :elsif, :unless
+      self[2]
+    when :class, :def
+      self[3]
+    when :defs
+      self[5]
+    end
+  end
+
+  # Get block node.
+  #
+  #     s(:method_add_block,
+  #       s(:command,
+  #         s(:@ident, "resources", s(1, 0)),
+  #         s(:args_add_block, s(:args_add, s(:args_new), s(:symbol_literal, s(:symbol, s(:@ident, "posts", s(1, 11))))), false)
+  #       ),
+  #       s(:do_block, nil,
+  #         s(:stmts_add, s(:stmts_add, s(:stmts_new), s(:void_stmt)),
+  #           s(:command,
+  #           s(:@ident, "resources", s(1, 21)),
+  #           s(:args_add_block, s(:args_add, s(:args_new), s(:symbol_literal, s(:symbol, s(:@ident, "comments", s(1, 32))))), false))
+  #         )
+  #       )
+  #     )
+  #         => s(:do_block, nil,
+  #              s(:stmts_add, s(:stmts_add, s(:stmts_new), s(:void_stmt)),
+  #                s(:command,
+  #                s(:@ident, "resources", s(1, 21)),
+  #                s(:args_add_block, s(:args_add, s(:args_new), s(:symbol_literal, s(:symbol, s(:@ident, "comments", s(1, 32))))), false))
+  #              )
+  #            )
+  #
+  # @return [Sexp] body node
+  def block
+    case sexp_type
+    when :method_add_block
+      self[2]
+    end
+  end
+
+
+  #####################
+  #####################
+  # Private functions #
+  #####################
+  #####################
+  
+  private
+  
+  # Converts options into a conditional lambda that returns true or false
+  # Checks descendants against :sexp_type, :subject, :message and :to_s
+  def _options_to_conditional(options)
+    sexp_type = options[:sexp_type]
+    subject = options[:subject]
+    message = options[:message]
+    to_s = options[:to_s]
+    
+    lambda {|descendant|
+      (!sexp_type || (sexp_type.is_a?(Array) ? sexp_type.include?(descendant.sexp_type) : sexp_type == descendant.sexp_type)) &&
+      (!subject || (subject.is_a?(Array) ? subject.include?(descendant.subject.to_s) : subject == descendant.subject.to_s)) &&
+      (!message || (message.is_a?(Array) ? message.include?(descendant.message.to_s) : message == descendant.message.to_s)) &&
+      (!to_s || (to_s.is_a?(Array) ? to_s.include?(descendant.to_s) : to_s == descendant.to_s))
+    }
+  end
+
+=begin
+  # return the line number of a sexp node.
+  #
+  #     s(:@ident, "test", s(2, 12)
+  #       => 2
+  def line
+    if [:def, :defs, :command, :command_call, :call, :fcall, :method_add_arg, :method_add_block,
+      :var_ref, :vcall, :const_ref, :const_path_ref, :class, :module, :if, :unless, :elsif, :ifop, :binary,
+      :alias, :symbol_literal, :symbol, :aref].include? sexp_type
+      self[1].line
+    elsif :array == sexp_type
+      array_values.first.line
+    else
+      self.last.first if self.last.is_a? Array
+    end
+  end
+
+  # search all the recursive child nodes with conditions, and get the count of match nodes.
+  #
+  # @param [Hash] options search conditions
+  # @return [Integer] the count of metch nodes
+  def descendants_count(options)
+    count = 0
+    descendants(options) { |node| count += 1 }
+    count
   end
 
   # Get the module name of the module node.
@@ -214,118 +673,6 @@ class Sexp
     if :assign == sexp_type
       self[2]
     end
-  end
-
-  # Get the message node.
-  #
-  #     s(:command,
-  #       s(:@ident, "has_many", s(1, 0)),
-  #       s(:args_add_block,
-  #         s(:args_add, s(:args_new),
-  #           s(:symbol_literal, s(:symbol, s(:@ident, "projects", s(1, 10))))
-  #         ),
-  #         false
-  #       )
-  #     )
-  #         => s(:@ident, "has_many", s(1, 0)),
-  #
-  # @return [Symbol] message node
-  def message
-    case sexp_type
-    when :command, :fcall
-      self[1]
-    when :binary
-      self[2]
-    when :command_call, :field, :call
-      self[3]
-    when :method_add_arg, :method_add_block
-      self[1].message
-    end
-  end
-
-  # Get arguments node.
-  #
-  #     s(:command,
-  #       s(:@ident, "resources", s(1, 0)),
-  #       s(:args_add_block,
-  #         s(:args_add, s(:args_new),
-  #           s(:symbol_literal, s(:symbol, s(:@ident, "posts", s(1, 11))))
-  #         ), false
-  #       )
-  #     )
-  #         => s(:args_add_block,
-  #              s(:args_add, s(:args_new),
-  #                s(:symbol_literal, s(:symbol, s(:@ident, "posts", s(1, 11))))
-  #              ), false
-  #            )
-  #
-  # @return [Sexp] arguments node
-  def arguments
-    case sexp_type
-    when :command
-      self[2]
-    when :command_call
-      self[4]
-    when :method_add_arg
-      self[2].arguments
-    when :method_add_block
-      self[1].arguments
-    when :arg_paren
-      self[1]
-    when :array
-      self
-    end
-  end
-
-  # Get only argument for binary.
-  #
-  #     s(:binary,
-  #       s(:var_ref, s(:@ident, "user", s(1, 0))),
-  #       :==,
-  #       s(:var_ref, s(:@ident, "current_user", s(1, 8)))
-  #     )
-  #         => s(:var_ref, s(:@ident, "current_user", s(1, 8)))
-  #
-  # @return [Sexp] argument node
-  def argument
-    if :binary == sexp_type
-      self[3]
-    end
-  end
-
-  # Get all arguments.
-  #
-  #     s(:args_add_block,
-  #       s(:args_add,
-  #         s(:args_add, s(:args_new), s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "hello", s(1, 6))))),
-  #         s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "world", s(1, 15))))
-  #       ), false
-  #     )
-  #         => [
-  #              s(:args_add, s(:args_new), s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "hello", s(1, 6))))),
-  #              s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "world", s(1, 15))))
-  #            ]
-  #
-  # @return [Array] all arguments
-  def all
-    nodes = []
-    case sexp_type
-    when :args_add_block, :array
-      if self[1].sexp_type == :args_new
-        nodes << self[2]
-      else
-        node = self[1]
-        while true
-          if [:args_add, :args_add_star].include? node.sexp_type
-            nodes.unshift node[2]
-            node = node[1]
-          elsif :args_new == node.sexp_type
-            break
-          end
-        end
-      end
-    end
-    nodes
   end
 
   # Get the conditional statement of if node.
@@ -411,76 +758,6 @@ class Sexp
     end
   end
 
-  # Get body node.
-  #
-  #     s(:class,
-  #       s(:const_ref, s(:@const, "User", s(1, 6))),
-  #       nil,
-  #       s(:bodystmt,
-  #         s(:stmts_add, s(:stmts_new),
-  #           s(:def,
-  #             s(:@ident, "login", s(1, 16)),
-  #             s(:params, nil, nil, nil, nil, nil),
-  #             s(:bodystmt, s(:stmts_add, s(:stmts_new), s(:void_stmt)), nil, nil, nil)
-  #           )
-  #         ), nil, nil, nil
-  #       )
-  #     )
-  #         => s(:bodystmt,
-  #              s(:stmts_add, s(:stmts_new),
-  #                s(:def,
-  #                  s(:@ident, "login", s(1, 16)),
-  #                  s(:params, nil, nil, nil, nil, nil),
-  #                  s(:bodystmt, s(:stmts_add, s(:stmts_new), s(:void_stmt)), nil, nil, nil)
-  #                )
-  #              ), nil, nil, nil
-  #            )
-  #
-  # @return [Sexp] body node
-  def body
-    case sexp_type
-    when :else
-      self[1]
-    when :module, :if, :elsif, :unless
-      self[2]
-    when :class, :def
-      self[3]
-    when :defs
-      self[5]
-    end
-  end
-
-  # Get block node.
-  #
-  #     s(:method_add_block,
-  #       s(:command,
-  #         s(:@ident, "resources", s(1, 0)),
-  #         s(:args_add_block, s(:args_add, s(:args_new), s(:symbol_literal, s(:symbol, s(:@ident, "posts", s(1, 11))))), false)
-  #       ),
-  #       s(:do_block, nil,
-  #         s(:stmts_add, s(:stmts_add, s(:stmts_new), s(:void_stmt)),
-  #           s(:command,
-  #           s(:@ident, "resources", s(1, 21)),
-  #           s(:args_add_block, s(:args_add, s(:args_new), s(:symbol_literal, s(:symbol, s(:@ident, "comments", s(1, 32))))), false))
-  #         )
-  #       )
-  #     )
-  #         => s(:do_block, nil,
-  #              s(:stmts_add, s(:stmts_add, s(:stmts_new), s(:void_stmt)),
-  #                s(:command,
-  #                s(:@ident, "resources", s(1, 21)),
-  #                s(:args_add_block, s(:args_add, s(:args_new), s(:symbol_literal, s(:symbol, s(:@ident, "comments", s(1, 32))))), false))
-  #              )
-  #            )
-  #
-  # @return [Sexp] body node
-  def block
-    case sexp_type
-    when :method_add_block
-      self[2]
-    end
-  end
-
   # Get all statements nodes.
   #
   #     s(:bodystmt,
@@ -535,37 +812,6 @@ class Sexp
     stmts
   end
 
-  # Get hash value node.
-  #
-  #     s(:hash,
-  #       s(:assoclist_from_args,
-  #         s(
-  #           s(:assoc_new, s(:@label, "first_name:", s(1, 1)), s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "Richard", s(1, 14))))),
-  #           s(:assoc_new, s(:@label, "last_name:", s(1, 24)), s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "Huang", s(1, 36)))))
-  #         )
-  #       )
-  #     )
-  #         => s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "Richard", s(1, 14))))
-  #
-  # @return [Sexp] hash value node
-  def hash_value(key)
-    pair_nodes = case sexp_type
-                 when :bare_assoc_hash
-                   self[1]
-                 when :hash
-                   self[1][1]
-                 else
-                 end
-    if pair_nodes
-      pair_nodes.size.times do |i|
-        if key == pair_nodes[i][1].to_s
-          return pair_nodes[i][2]
-        end
-      end
-    end
-    nil
-  end
-
   # Get hash size.
   #
   #     s(:hash,
@@ -587,69 +833,6 @@ class Sexp
       self[1].size
     when :bare_assoc_hash
       self[1].size
-    end
-  end
-
-  # Get the hash keys.
-  #
-  #     s(:hash,
-  #       s(:assoclist_from_args,
-  #         s(
-  #           s(:assoc_new, s(:@label, "first_name:", s(1, 1)), s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "Richard", s(1, 14))))),
-  #           s(:assoc_new, s(:@label, "last_name:", s(1, 24)), s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "Huang", s(1, 36)))))
-  #         )
-  #       )
-  #     )
-  #         => ["first_name", "last_name"]
-  #
-  # @return [Array] hash keys
-  def hash_keys
-    pair_nodes = case sexp_type
-                 when :bare_assoc_hash
-                   self[1]
-                 when :hash
-                   self[1][1]
-                 else
-                 end
-    if pair_nodes
-      keys = []
-      pair_nodes.size.times do |i|
-        keys << pair_nodes[i][1].to_s
-      end
-      keys
-    end
-  end
-
-  # Get the hash values.
-  #
-  #     s(:hash,
-  #       s(:assoclist_from_args,
-  #         s(
-  #           s(:assoc_new, s(:@label, "first_name:", s(1, 1)), s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "Richard", s(1, 14))))),
-  #           s(:assoc_new, s(:@label, "last_name:", s(1, 24)), s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "Huang", s(1, 36)))))
-  #         )
-  #       )
-  #     )
-  #         => [
-  #              s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "Richard", s(1, 14)))),
-  #              s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "Huang", s(1, 36))))
-  #            ]
-  #
-  # @return [Array] hash values
-  def hash_values
-    pair_nodes = case sexp_type
-                 when :bare_assoc_hash
-                   self[1]
-                 when :hash
-                   self[1][1]
-                 else
-                 end
-    if pair_nodes
-      values = []
-      pair_nodes.size.times do |i|
-        values << pair_nodes[i][2]
-      end
-      values
     end
   end
 
@@ -684,44 +867,6 @@ class Sexp
     end
   end
 
-  # Get the array values.
-  #
-  #     s(:array,
-  #       s(:args_add,
-  #         s(:args_add, s(:args_new), s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "first_name", s(1, 2))))),
-  #         s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "last_name", s(1, 16))))
-  #       )
-  #     )
-  #         => [
-  #              s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "first_name", s(1, 2)))),
-  #              s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "last_name", s(1, 16))))
-  #            ]
-  #
-  # @return [Array] array values
-  def array_values
-    if :array == sexp_type
-      if nil == self[1]
-        []
-      elsif :qwords_add == self[1].sexp_type
-        self[1].array_values
-      else
-        arguments.all
-      end
-    elsif :qwords_add
-      values = []
-      node = self
-      while true
-        if :qwords_add == node.sexp_type
-          values.unshift node[2]
-          node = node[1]
-        elsif :qwords_new == node.sexp_type
-          break
-        end
-      end
-      values
-    end
-  end
-
   # old method for alias node.
   #
   #     s(:alias,
@@ -742,70 +887,6 @@ class Sexp
   #         => s(:symbol_literal, s(:@ident, "new", s(1, 6))),
   def new_method
     self[1]
-  end
-
-  # To object.
-  #
-  #     s(:array,
-  #       s(:args_add,
-  #         s(:args_add, s(:args_new), s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "first_name", s(1, 2))))),
-  #         s(:string_literal, s(:string_add, s(:string_content), s(:@tstring_content, "last_name", s(1, 16))))
-  #       )
-  #     )
-  #         => ["first_name", "last_name"]
-  #
-  # @return [Object]
-  def to_object
-    case sexp_type
-    when :array
-      if nil == self[1]
-        []
-      else
-        arguments.all.map(&:to_s)
-      end
-    else
-      to_s
-    end
-  end
-
-  # to_s.
-  #
-  # @return [String] to_s
-  def to_s
-    case sexp_type
-    when :string_literal, :xstring_literal, :string_content, :const_ref, :symbol_literal, :symbol,
-         :args_add_block, :var_ref, :vcall, :var_field,
-         :@ident, :@tstring_content, :@const, :@ivar, :@kw, :@gvar, :@cvar
-      self[1].to_s
-    when :string_add
-      if s(:string_content) == self[1]
-        self[2].to_s
-      else
-        self[1].to_s
-      end
-    when :args_add
-      if s(:args_new) == self[1]
-        self[2].to_s
-      else
-        self[1].to_s
-      end
-    when :qwords_add
-      if s(:qwords_new) == self[1]
-        self[2].to_s
-      else
-        self[1].to_s
-      end
-    when :const_path_ref
-      "#{self[1]}::#{self[2]}"
-    when :@label
-      self[1].to_s[0..-2]
-    when :aref
-      "#{self[1]}[#{self[2]}]"
-    when :call, :field
-      "#{self.subject}.#{self.message}"
-    else
-      ""
-    end
   end
 
   # check if the self node is a const.
@@ -837,4 +918,5 @@ class Sexp
     end
     node
   end
+=end
 end

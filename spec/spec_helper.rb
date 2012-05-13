@@ -7,8 +7,8 @@ def default_application_path
 end
 
 def create_tempfile(content)
-    file = Tempfile.new("test")
-    file.write(content)
-    file.close
-    return file
+  file = Tempfile.new("test")
+  file.write(content)
+  file.close
+  return file
 end

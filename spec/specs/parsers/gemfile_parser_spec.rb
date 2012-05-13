@@ -73,8 +73,8 @@ module RailsAuditor::Parsers
         parsed_gemfile = GemfileParser.parse(@gemfile.path)
         parsed_gemfile.gems['gem1'][:groups].should == []
         parsed_gemfile.gems['gem2'][:groups].should == [:test]
-        parsed_gemfile.gems['gem3'][:groups].should == [:test, :development]
-        parsed_gemfile.gems['gem4'][:groups].should == [:test, :development]
+        parsed_gemfile.gems['gem3'][:groups].should == [:development, :test]
+        parsed_gemfile.gems['gem4'][:groups].should == [:development, :test]
       end
     end
   end
