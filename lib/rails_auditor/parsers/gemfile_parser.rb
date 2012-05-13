@@ -2,23 +2,19 @@ module RailsAuditor #:nodoc:
   module Parsers #:nodoc:
     # = Gemfile Parser
     #
-    # The class inspects a gemfile and extracts information, such as the groups, gems, etc.
-  
+    # The class inspects a gemfile and extracts the gems, along with their groups
+    #
     # It works like this:
     #
-    #   parser = GemfileParser.new("/path/to/Gemfile")
-    #   parser.gems # => {"rails" => {:specification => <GemSpecification>, :groups => [:all]}, ...}
+    #   parsed_gemfile = GemfileParser.parse("/path/to/Gemfile")
+    #   parsed_gemfile.gems # => {"rails" => {:specification => <ParsedGem>, :groups => [:all]}, ...}
     class GemfileParser
     
-      attr_reader :gems
+      attr_reader :parsed_gemfile
     
       def initialize(filepath)
         @filepath = filepath
         @gems = {}
-      end
-    
-      def rails_version
-        gems.values.flatten[]
       end
     
       def parse
@@ -33,6 +29,9 @@ module RailsAuditor #:nodoc:
         
           #ap node
         end
+        
+        # Return a representation of the gemfile
+        return Blueprints::GemfileBlueprint.new(@filepath, @gems)
       end
     
       def parse_gem_node(gem_node, groups)
@@ -50,8 +49,12 @@ module RailsAuditor #:nodoc:
           end 
         end
       
-        spec = ParsedComponents::ParsedGem.new(name, options)
-        @gems[spec.name] ||= {specification: spec, groups: []}
+        add_gem(name, options, [])
+      end
+      
+      def add_gem(name, options, groups)
+        parsed_gem = Blueprints::GemBlueprint.new(name, options)
+        @gems[parsed_gem.name] ||= {specification: parsed_gem, groups: []}
       end
     
       def append_gem_options!(options, node, hash_keys = nil)
@@ -64,8 +67,7 @@ module RailsAuditor #:nodoc:
       # Takes a filepath and parses it, returning a loaded Gemfile Auditor
       def self.parse(filepath)
         parser = self.new(filepath)
-        parser.parse
-        parser
+        return parser.parse
       end
     end
   end

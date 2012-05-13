@@ -1,6 +1,6 @@
 module RailsAuditor #:nodoc:
-  module ParsedComponents
-    class ParsedGem
+  module Blueprints #:nodoc:
+    class GemBlueprint
       
       attr_reader :name, :version, :git_repository, :git_branch
       

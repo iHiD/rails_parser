@@ -43,7 +43,7 @@ module RailsAuditor::Parsers
       it "should return a specification and groups for each gem from a Gemfile" do
         pending
         parsed_gemfile = GemfileParser.parse("#{default_application_path}/Gemfile")
-        parsed_gemfile.gems['rails'].should == {specification:RailsAuditor::ParsedComponents::ParsedGem.new("rails", version: "3.2.1"),
+        parsed_gemfile.gems['rails'].should == {specification:RailsAuditor::BluePrints::ParsedGem.new("rails", version: "3.2.1"),
                                                   groups: []}
       end
     end
