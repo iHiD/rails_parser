@@ -76,5 +76,16 @@ module RailsAuditor::Parsers
         @parser.gems[:gem4][:groups].should == [:development]
       end
     end
+    
+    it "should save the source" do
+      content = <<-EOS
+      source 'https://rubygems.org'
+      gem 'gem1'
+      EOS
+      @gemfile = create_tempfile(content)
+      @parser = GemfileParser.new
+      @parser.parse(@gemfile)
+      @parser.source.should == "https://rubygems.org"
+    end
   end
 end

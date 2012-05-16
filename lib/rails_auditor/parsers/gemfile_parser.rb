@@ -11,6 +11,7 @@ module RailsAuditor #:nodoc:
     class GemfileParser < SexpProcessor
       
       attr_reader :gems
+      attr_reader :source
     
       def initialize
         super
@@ -40,11 +41,10 @@ module RailsAuditor #:nodoc:
           args_exp.each do |arg|
             @current_groups << arg[1]
           end
+        when :source
+          @source = args_exp[1][1]
         end
         return exp
-      end
-      
-      def process_argslist(exp)
       end
       
       def process_iter(exp)
