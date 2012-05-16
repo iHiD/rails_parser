@@ -15,7 +15,6 @@ module RailsAuditor #:nodoc:
       def ==(other_gem)
         return name == other_gem.name
       end
-      
     end
   end
 end

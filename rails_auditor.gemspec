@@ -20,4 +20,7 @@ Gem::Specification.new do |gem|
   
   gem.add_development_dependency("rspec")
   gem.add_development_dependency("awesome_print")
+  
+  gem.add_dependency("ruby_parser")
+  gem.add_dependency("sexp_processor")
 end

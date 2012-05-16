@@ -7,10 +7,80 @@ module RailsAuditor #:nodoc:
     # It works like this:
     #
     #   parsed_gemfile = GemfileParser.parse("/path/to/Gemfile")
-    #   parsed_gemfile.gems # => {"rails" => {:specification => <ParsedGem>, :groups => [:all]}, ...}
-    class GemfileParser
+    #   parsed_gemfile.gems # => {"rails" => {:blueprint => <ParsedGem>, :groups => [:all]}, ...}
+    class GemfileParser < SexpProcessor
+      
+      attr_reader :gems
     
-      attr_reader :parsed_gemfile
+      def initialize
+        super
+        self.auto_shift_type = true
+        @gems = {}
+        @current_groups = []
+      end
+      
+      def parse(gemfile)
+        content = File.read(gemfile)
+        parser = RubyParser.new
+        sexp = parser.process(content)
+        process(sexp)
+      end
+      
+      def process_call(exp)
+        exp.shift
+        command = exp.shift
+        args_exp = exp.shift
+        
+        case command
+        when :gem
+          parse_gem(args_exp[1], args_exp[2]) 
+        when :group
+          args_exp.shift
+          @current_groups = []
+          args_exp.each do |arg|
+            @current_groups << arg[1]
+          end
+        end
+        return exp
+      end
+      
+      def process_argslist(exp)
+      end
+      
+      def process_iter(exp)
+        while exp.length > 0
+          process(exp.shift)
+        end
+        @current_groups = []
+        return exp
+      end
+      
+      def parse_gem(name_exp, args_exp)
+        name = name_exp[1]
+        options = {}
+      
+        case args_exp[0]
+        when :str
+          options[:version] = args_exp[1]
+          
+        when :hash
+          args_exp.shift # Get rid of :hash
+          while args_exp.length > 0
+            options[args_exp.shift[1]] = args_exp.shift[1]
+          end
+        end if args_exp
+        
+        gem_group = options.delete(:group)
+        
+        @gems[name.to_sym] ||= {blueprint: Blueprints::GemBlueprint.new(name, options), groups: []}
+        @gems[name.to_sym][:groups] << gem_group if gem_group
+        @gems[name.to_sym][:groups] += @current_groups
+      end
+    end
+  end
+end
+    
+=begin
     
       def initialize(filepath)
         @filepath = filepath
@@ -44,7 +114,7 @@ module RailsAuditor #:nodoc:
         end
         
         # Return a representation of the gemfile
-        return Blueprints::GemfileBlueprint.new(@filepath, @gems)
+        return 
       end
     
       def parse_gem_node(gem_node, groups)
@@ -68,7 +138,7 @@ module RailsAuditor #:nodoc:
       def add_gem(name, options, groups)
         
         parsed_gem = Blueprints::GemBlueprint.new(name, options)
-        @gems[parsed_gem.name] ||= {specification: parsed_gem, groups: groups}
+        @gems[parsed_gem.name] ||= {blueprint: parsed_gem, groups: groups}
       end
     
       def append_gem_options!(options, node, hash_keys = nil)
@@ -86,3 +156,4 @@ module RailsAuditor #:nodoc:
     end
   end
 end
+=end
