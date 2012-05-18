@@ -1,4 +1,4 @@
-module RailsAuditor #:nodoc:
+module RailsParser #:nodoc:
   module Parsers #:nodoc:
     module Rails #:nodoc:
       # = Gemfile Parser

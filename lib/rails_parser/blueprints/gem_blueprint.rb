@@ -1,4 +1,4 @@
-module RailsAuditor #:nodoc:
+module RailsParser #:nodoc:
   module Blueprints #:nodoc:
     class GemBlueprint
       

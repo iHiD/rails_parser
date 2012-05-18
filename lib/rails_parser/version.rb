@@ -1,3 +1,3 @@
-module RailsAuditor
+module RailsParser
   VERSION = "0.0.1"
 end

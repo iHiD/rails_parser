@@ -1,4 +1,4 @@
-require File.join(File.dirname(__FILE__), "..", "lib", "rails_auditor")
+require File.join(File.dirname(__FILE__), "..", "lib", "rails_parser")
 require 'awesome_print'
 require 'tempfile'
 

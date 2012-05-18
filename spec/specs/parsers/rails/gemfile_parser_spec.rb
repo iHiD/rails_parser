@@ -1,12 +1,12 @@
 require 'spec_helper'
 
-module RailsAuditor::Parsers::Rails
+module RailsParser::Parsers::Rails
   describe GemfileParser do
 
     it "should parse a Gemfile" do
       parser = GemfileParser.new
       parser.parse("#{default_application_path}/Gemfile")
-      parser.gems[:rails].should == {blueprint:RailsAuditor::Blueprints::GemBlueprint.new("rails", version: "3.2.1"), groups: []}
+      parser.gems[:rails].should == {blueprint:RailsParser::Blueprints::GemBlueprint.new("rails", version: "3.2.1"), groups: []}
     end
 
     describe "Ungrouped gems" do
