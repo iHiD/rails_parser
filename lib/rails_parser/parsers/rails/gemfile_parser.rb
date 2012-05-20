@@ -72,7 +72,7 @@ module RailsParser #:nodoc:
         
           gem_group = options.delete(:group)
         
-          @gems[name.to_sym] ||= {blueprint: Blueprints::GemBlueprint.new(name, options), groups: []}
+          @gems[name.to_sym] ||= {blueprint: Blueprints::Rails::GemBlueprint.new(name, options), groups: []}
           @gems[name.to_sym][:groups] << gem_group if gem_group
           @gems[name.to_sym][:groups] += @current_groups
         end

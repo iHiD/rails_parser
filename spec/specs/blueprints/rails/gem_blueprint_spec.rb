@@ -1,6 +1,6 @@
 require 'spec_helper'
 
-module RailsParser::Blueprints
+module RailsParser::Blueprints::Rails
   describe GemBlueprint do
   
     it "should save the name" do

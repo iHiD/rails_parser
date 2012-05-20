@@ -1,14 +1,6 @@
 module RailsParser #:nodoc:
   module Parsers #:nodoc:
     module Rails #:nodoc:
-      # = Gemfile Parser
-      #
-      # The class inspects an application.rb config file and extracts the options
-      #
-      # It works like this:
-      # parser = ApplicationConfigParser.new 
-      # parser.parse("/path/to/application.rb")
-      # parser.application_name  #=> "Foobar"
       
       class ConfigParser < SexpProcessor
         
@@ -17,7 +9,11 @@ module RailsParser #:nodoc:
         def initialize
           super
           self.auto_shift_type = true
-          @config_options = {}
+          @config_options = []
+        end
+        
+        def process(exp)
+          super
         end
         
         def process_attrasgn(exp)
@@ -25,16 +21,23 @@ module RailsParser #:nodoc:
           variable = exp.shift
           value = exp.shift
           
-          ap object
-          
           variable = variable[0...-1].to_sym
-          value = value[1][1]
-          @config_options[variable] = value
+          
+          # If we have a specified type
+          if value[1].length > 1
+            value = value[1][1]
+          else
+            value = value[1][0]
+          end
+          
+          call_tree_parser = Ruby::CallTreeParser.parse(object)
+          call_tree = call_tree_parser.call_tree
+          call_tree.shift # Remove the :config call
+          
+          call_tree.push(Blueprints::Ruby::MethodCallBlueprint.new(variable, arguments: [value]))
+          config_options << call_tree
+          
           exp
-        end
-        
-        def process_op_asgn2(exp)
-          ap exp
         end
       end
     end
