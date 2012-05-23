@@ -21,19 +21,16 @@ module RailsParser #:nodoc:
         end
       
         def process_call(exp)
+          
           arguments_exp = exp[3]
           
           case exp[2]
           when :gem
             parse_gem(arguments_exp[1].to_value, arguments_exp[2]) 
           when :group
-            arguments_exp.shift
-            @current_groups = []
-            arguments_exp.each do |arg|
-              @current_groups << arg[1]
-            end
+            @current_groups = arguments_exp.to_a
           when :source
-            @source = arguments_exp[1][1]
+            @source = arguments_exp[1].to_value
           end
           exp
         end
