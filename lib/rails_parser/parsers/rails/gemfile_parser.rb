@@ -25,7 +25,7 @@ module RailsParser #:nodoc:
           
           case exp[2]
           when :gem
-            parse_gem(arguments_exp[1][1], arguments_exp[2..-1][0]) 
+            parse_gem(arguments_exp[1].to_value, arguments_exp[2]) 
           when :group
             arguments_exp.shift
             @current_groups = []
@@ -46,17 +46,19 @@ module RailsParser #:nodoc:
       
         def parse_gem(name, arguments_exp)
           
-          options = {}
-          case arguments_exp.shift
-          when :str
-            options[:version] = arguments_exp[0]
-          
-          when :hash
-            while arguments_exp.length > 0
-              options[arguments_exp.shift[1]] = arguments_exp.shift[1]
+          options = if arguments_exp
+            case arguments_exp[0]
+            when :str
+              {version: arguments_exp.to_value}
+            when :hash
+              arguments_exp.to_hash
+            else 
+              raise ArgumentError, "Unknown Gem Pattern"
             end
-          end if arguments_exp
-        
+          else 
+            {}
+          end
+          
           gem_group = options.delete(:group)
         
           @gems[name.to_sym] ||= {blueprint: Blueprints::Rails::GemBlueprint.new(name, options), groups: []}
