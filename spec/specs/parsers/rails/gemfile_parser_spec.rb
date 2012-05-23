@@ -5,7 +5,7 @@ module RailsParser::Parsers::Rails
 
     it "should parse a Gemfile" do
       parser = GemfileParser.parse_file("#{default_application_path}/Gemfile")
-      parser.gems[:rails].should == {blueprint:RailsParser::Blueprints::Rails::GemBlueprint.new("rails", version: "3.2.1"), groups: []}
+      parser.gems[:rails].should == {name:"rails", version: "3.2.3", groups: []}
     end
 
     describe "Ungrouped gems" do
@@ -24,26 +24,26 @@ module RailsParser::Parsers::Rails
       it "should return the name of a gem" do
         @parser.parse_file(@gemfile)
         @parser.gems.keys.should include :gem1
-        @parser.gems[:gem1][:blueprint].name.should == "gem1"
+        @parser.gems[:gem1][:name].should == "gem1"
       end
       
       it "should return the name and version of a gem" do
         @parser.parse_file(@gemfile)
-        @parser.gems[:gem2][:blueprint].name.should == "gem2"
-        @parser.gems[:gem2][:blueprint].version.should == "3.2.1"
+        @parser.gems[:gem2][:name].should == "gem2"
+        @parser.gems[:gem2][:version].should == "3.2.1"
       end
   
       it "should return the git repository of a gem" do
         @parser.parse_file(@gemfile)
-        @parser.gems[:gem3][:blueprint].name.should == "gem3"
-        @parser.gems[:gem3][:blueprint].git_repository.should == "git://github.com/ihid/gem3"
+        @parser.gems[:gem3][:name].should == "gem3"
+        @parser.gems[:gem3][:git].should == "git://github.com/ihid/gem3"
       end
   
       it "should return the git repository of a gem" do
         @parser.parse_file(@gemfile)
-        @parser.gems[:gem4][:blueprint].name.should == "gem4"
-        @parser.gems[:gem4][:blueprint].git_repository.should == "git://github.com/ihid/gem4"
-        @parser.gems[:gem4][:blueprint].git_branch.should == "foobar"
+        @parser.gems[:gem4][:name].should == "gem4"
+        @parser.gems[:gem4][:git].should == "git://github.com/ihid/gem4"
+        @parser.gems[:gem4][:branch].should == "foobar"
       end
     end
 

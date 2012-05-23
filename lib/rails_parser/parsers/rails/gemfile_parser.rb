@@ -43,23 +43,21 @@ module RailsParser #:nodoc:
       
         def parse_gem(name, arguments_exp)
           
-          options = if arguments_exp
+          options = {name: name, groups:[]}
+          if arguments_exp
             case arguments_exp[0]
             when :str
-              {version: arguments_exp.to_value}
+              options.merge!({version: arguments_exp.to_value})
             when :hash
-              arguments_exp.to_hash
+              options.merge!(arguments_exp.to_hash)
             else 
               raise ArgumentError, "Unknown Gem Pattern"
             end
-          else 
-            {}
           end
-          
-          gem_group = options.delete(:group)
+          options[:groups] = [options.delete(:group)].compact
         
-          @gems[name.to_sym] ||= {blueprint: Blueprints::Rails::GemBlueprint.new(name, options), groups: []}
-          @gems[name.to_sym][:groups] << gem_group if gem_group
+          @gems[name.to_sym] ||= {}
+          @gems[name.to_sym].merge!(options)
           @gems[name.to_sym][:groups] += @current_groups
         end
       end
