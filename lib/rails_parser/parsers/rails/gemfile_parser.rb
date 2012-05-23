@@ -9,22 +9,15 @@ module RailsParser #:nodoc:
       # parser = GemfileParser.new 
       # parser.parse("/path/to/Gemfile")
       # parser.gems = {rails: {blueprint: <Blueprints::GemBlueprint>, groups: [:test, :development]}}
-      class GemfileParser < SexpProcessor
+      class GemfileParser < RailsParser::Parsers::BaseParser
       
         attr_reader :gems
         attr_reader :source
     
         def initialize
           super
-          self.auto_shift_type = true
           @gems = {}
           @current_groups = []
-        end
-      
-        def parse(gemfile)
-          content = File.read(gemfile)
-          sexp = RubyParser.new.process(content)
-          process(sexp)
         end
       
         def process_call(exp)

@@ -1,7 +1,7 @@
 module RailsParser #:nodoc:
   module Parsers #:nodoc:
     module Ruby #:
-      class CallTreeParser < SexpProcessor
+      class CallTreeParser < RailsParser::Parsers::BaseParser
         
         attr_accessor :call_tree
         
@@ -12,7 +12,7 @@ module RailsParser #:nodoc:
         
         def parse(exp)
           @call_tree = []
-          process(exp)
+          super
         end 
         
         def process_call(exp)
@@ -29,12 +29,6 @@ module RailsParser #:nodoc:
         end
         
         def process_arglist(exp)
-        end
-        
-        def self.parse(exp)
-          parser = self.new
-          parser.parse(exp)
-          parser
         end
       end
     end

@@ -10,7 +10,7 @@ module RailsParser #:nodoc:
       # parser.parse("/path/to/application.rb")
       # parser.application_name  #=> "Foobar"
       
-      class ApplicationConfigParser < SexpProcessor
+      class ApplicationConfigParser < RailsParser::Parsers::BaseParser
         
         attr_reader :application_name
         attr_reader :config_options
@@ -18,12 +18,6 @@ module RailsParser #:nodoc:
         def initialize
           super
           self.auto_shift_type = true
-        end
-        
-        def parse(filepath)
-          content = File.read(filepath)
-          sexp = RubyParser.new.process(content)
-          process(sexp)
         end
         
         def process_module(exp)

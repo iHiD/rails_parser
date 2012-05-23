@@ -1,7 +1,7 @@
 module RailsParser #:nodoc:
   module Parsers #:nodoc:
     module Ruby #:
-      class ArgsListParser < SexpProcessor
+      class ArgsListParser < RailsParser::Parsers::BaseParser
         
         attr_accessor :arguments
         
@@ -12,7 +12,7 @@ module RailsParser #:nodoc:
         
         def parse(exp)
           @arguments = []
-          process(exp)
+          super
         end
         
         def process_arglist(exp)
@@ -32,12 +32,6 @@ module RailsParser #:nodoc:
             end
           end
           exp
-        end
-        
-        def self.parse(exp)
-          parser = self.new
-          parser.parse(exp)
-          parser
         end
       end
     end
