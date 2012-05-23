@@ -21,47 +21,41 @@ module RailsParser #:nodoc:
         end
       
         def process_call(exp)
-          exp.shift
-          command = exp.shift
-          args_exp = exp.shift
-        
-          case command
+          arguments_exp = exp[3]
+          
+          case exp[2]
           when :gem
-            parse_gem(args_exp[1], args_exp[2]) 
+            parse_gem(arguments_exp[1][1], arguments_exp[2..-1][0]) 
           when :group
-            args_exp.shift
+            arguments_exp.shift
             @current_groups = []
-            args_exp.each do |arg|
+            arguments_exp.each do |arg|
               @current_groups << arg[1]
             end
           when :source
-            @source = args_exp[1][1]
+            @source = arguments_exp[1][1]
           end
-          return exp
+          exp
         end
       
         def process_iter(exp)
-          while exp.length > 0
-            process(exp.shift)
-          end
+          exp[1..-1].each {|node| process(node) }
           @current_groups = []
-          return exp
+          exp
         end
       
-        def parse_gem(name_exp, args_exp)
-          name = name_exp[1]
+        def parse_gem(name, arguments_exp)
+          
           options = {}
-      
-          case args_exp[0]
+          case arguments_exp.shift
           when :str
-            options[:version] = args_exp[1]
+            options[:version] = arguments_exp[0]
           
           when :hash
-            args_exp.shift # Get rid of :hash
-            while args_exp.length > 0
-              options[args_exp.shift[1]] = args_exp.shift[1]
+            while arguments_exp.length > 0
+              options[arguments_exp.shift[1]] = arguments_exp.shift[1]
             end
-          end if args_exp
+          end if arguments_exp
         
           gem_group = options.delete(:group)
         

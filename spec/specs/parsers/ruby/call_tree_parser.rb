@@ -9,7 +9,6 @@ module RailsParser::Parsers::Ruby
       
       parser = CallTreeParser.new
       parser.parse(RubyParser.new.process(content)[1])
-      ap parser.call_tree
       parser.call_tree.length.should == 2
       parser.call_tree[0].name.should == :a
       parser.call_tree[0].arguments.should == []
@@ -24,7 +23,6 @@ module RailsParser::Parsers::Ruby
       parsed_content = RubyParser.new.process(content)
       parser = CallTreeParser.new
       parser.parse(parsed_content[1])
-      ap parser.call_tree
       parser.call_tree.should == {:a => {:b => {:c => {:d => {:e => {:f => {}}}}}}}
     end
   end

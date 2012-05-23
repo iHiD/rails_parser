@@ -3,7 +3,7 @@ module RailsParser #:nodoc:
     class BaseParser < SexpProcessor
       def initialize
         super
-        self.auto_shift_type = true
+        self.auto_shift_type = false
         self.require_empty = false
       end
         
@@ -13,8 +13,8 @@ module RailsParser #:nodoc:
       
       def parse_file(filepath)
         content = File.read(filepath)
-        sexp = RubyParser.new.process(content)
-        process(sexp)
+        exp = RubyParser.new.process(content)
+        process(exp)
       end
       
       def self.parse(exp)
