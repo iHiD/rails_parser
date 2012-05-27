@@ -13,7 +13,7 @@ module RailsParser #:nodoc:
       
       def parse_file(filepath)
         content = File.read(filepath)
-        exp = RubyParser.new.process(content)
+        exp = Ruby19Parser.new.process(content)
         process(exp)
       end
       

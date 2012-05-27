@@ -13,17 +13,14 @@ module RailsParser #:nodoc:
         def parse(exp)
           @call_tree = []
           super
-        end 
+        end
         
         def process_call(exp)
           parent = exp.shift
           method = exp.shift
           args = exp.shift
           
-          argsListParser = ArgsListParser.new
-          argsListParser.parse(args)
-          
-          @call_tree.unshift(Blueprints::Ruby::MethodCallBlueprint.new(method, arguments: argsListParser.arguments))
+          @call_tree.unshift(name: method, arguments: args.to_a)
           process(parent)
           exp
         end

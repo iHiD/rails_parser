@@ -22,15 +22,13 @@ module RailsParser #:nodoc:
       
         def process_call(exp)
           
-          arguments_exp = exp[3]
-          
           case exp[2]
           when :gem
-            parse_gem(arguments_exp[1].to_value, arguments_exp[2]) 
+            parse_gem(exp[3].to_value, exp[4..-1]) 
           when :group
-            @current_groups = arguments_exp.to_a
+            @current_groups = exp[3..-1].map(&:to_value)
           when :source
-            @source = arguments_exp[1].to_value
+            @source = exp[3].to_value
           end
           exp
         end
@@ -42,14 +40,13 @@ module RailsParser #:nodoc:
         end
       
         def parse_gem(name, arguments_exp)
-          
           options = {name: name, groups:[]}
-          if arguments_exp
-            case arguments_exp[0]
+          if arguments_exp && arguments_exp.length > 0
+            case arguments_exp[0][0]
             when :str
-              options.merge!({version: arguments_exp.to_value})
+              options.merge!({version: arguments_exp[0].to_value})
             when :hash
-              options.merge!(arguments_exp.to_hash)
+              options.merge!(arguments_exp[0].to_hash)
             else 
               raise ArgumentError, "Unknown Gem Pattern"
             end

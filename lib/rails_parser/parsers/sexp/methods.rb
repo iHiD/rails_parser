@@ -11,21 +11,29 @@ class Sexp
   alias_method :to_h, :to_hash
   
   def to_array
-    raise ArgumentError, "expression must be a :arglist or an :array" unless [:arglist, :array].include?(self[0])
-    self[1..-1].map(&:to_value)
+    case self[0]
+    when :array
+      self[1..-1].map(&:to_value)
+    when :call
+      self[3..-1].map(&:to_value)
+    else
+      raise ArgumentError, "expression must be an :array or a :call"
+    end
   end
   alias_method :to_a, :to_array
   
   def to_value
     case self[0]
     when :str, :lit
-      return self[1]
+      self[1]
     when :true
-      return true
+      true
     when :false
-      return false
+      false
     when :nil
-      return nil
+      nil
+    when :array
+      self.to_array
     else 
       raise ArgumentError, "Unknown Type: #{self[0]}"
     end

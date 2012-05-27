@@ -17,24 +17,21 @@ module RailsParser #:nodoc:
     
         def initialize
           super
-          self.auto_shift_type = true
         end
         
         def process_module(exp)
-          @application_name = exp.shift.to_s
-          module_exp = exp.shift
-          process(module_exp)
+          @application_name = exp[1].to_s
+          process(exp[2])
           exp
         end
       
         def process_class(exp)
-          class_name = exp.shift
-          block_exp = exp.pop
-          parent_class = exp.shift
+          class_name = exp[1]
+          parent_class = exp[2]
           
           if parent_class && parent_class[1][1] == :Rails && parent_class[2] == :Application
             parser = ConfigParser.new
-            parser.process(block_exp)
+            parser.process(exp)
             @config_options = parser.config_options
           end
           

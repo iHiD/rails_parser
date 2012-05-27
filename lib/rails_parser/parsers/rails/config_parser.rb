@@ -8,8 +8,7 @@ module RailsParser #:nodoc:
     
         def initialize
           super
-          self.auto_shift_type = true
-          @config_options = []
+          @config_options = {}
         end
         
         def process(exp)
@@ -17,49 +16,41 @@ module RailsParser #:nodoc:
         end
         
         def process_attrasgn(exp)
-          object = exp.shift
-          method = exp.shift
-          value  = exp.shift
-          
-          # If we have a specified type
-          if value[1].length > 1
-            value = value[1][1]
-          else
-            value = value[1][0]
-          end
-          
-          call_tree_parser = Ruby::CallTreeParser.parse(object)
-          call_tree = call_tree_parser.call_tree
-          call_tree.shift # Remove the :config call
-          
-          call_tree.push(Blueprints::Ruby::MethodCallBlueprint.new(method, arguments: [value]))
-          config_options << call_tree
-          
+          parse_config_option(exp[1], exp[2], exp[3])
           exp
         end
         
         def process_op_asgn2(exp)
-          object   = exp.shift
-          variable = exp.shift
-          modifier = exp.shift
-          value    = exp.shift
-          
-          # If we have a specified type
-          if value[1].length > 1
-            value = value[1][1]
-          else
-            value = value[1][0]
-          end
-          
-          call_tree_parser = Ruby::CallTreeParser.parse(object)
-          call_tree = call_tree_parser.call_tree
-          call_tree.shift # Remove the :config call
-          
-          call_tree.push(Blueprints::Ruby::MethodCallBlueprint.new(variable, arguments: [value]))
-          config_options << call_tree
-          
+          parse_config_option(exp[1], exp[2], exp[4], exp[3])
           exp
         end
+        
+        private
+          def parse_config_option(object, method, value, modifer = nil)
+          
+            # Get the call tree
+            call_tree_parser = Ruby::CallTreeParser.parse(object)
+            call_tree = call_tree_parser.call_tree
+          
+            # Strip off the first value, which should be :config
+            # If it's not then we don't care about this node at all
+            # We only care about config values.
+            if :config != call_tree.shift[:name]
+              return
+            end
+          
+            # Turn the call tree into nodes on @config_options, retaining the 
+            # last segment to set the value on.
+            last_segment = call_tree.inject(@config_options) do |h, call|
+              h[call[:name]] ||= {}
+              h[call[:name]]
+            end
+          
+            # Set the value
+            method = method[0..-2].to_sym
+            value  = value.to_value
+            last_segment[method] = value
+          end
       end
     end
   end

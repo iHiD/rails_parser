@@ -10,7 +10,17 @@ module RailsParser::Parsers::Rails
     
     it "should get an array of config values" do 
       parser = ApplicationConfigParser.parse_file("#{default_application_path}/config/application.rb")
-      parser.config_options.length.should == 20
+      parser.config_options.should == {
+        encoding:"utf-8", 
+        filter_parameters: [:password], 
+        active_record: {
+          whitelist_attributes: true
+        }, 
+        assets: {
+          enabled: true, 
+          version: "1.0"
+        }
+      }
     end
   end
 end
