@@ -13,7 +13,7 @@ module RailsParser #:nodoc:
       class ApplicationConfigParser < RailsParser::Parsers::BaseParser
         
         attr_reader :application_name
-        attr_reader :config_options
+        attr_reader :configuration
     
         def initialize
           super
@@ -32,7 +32,7 @@ module RailsParser #:nodoc:
           if parent_class && parent_class[1][1] == :Rails && parent_class[2] == :Application
             parser = ConfigParser.new
             parser.process(exp)
-            @config_options = parser.config_options
+            @configuration = parser.configuration
           end
           
           exp

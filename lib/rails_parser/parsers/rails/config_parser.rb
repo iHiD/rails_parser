@@ -4,11 +4,11 @@ module RailsParser #:nodoc:
       
       class ConfigParser < RailsParser::Parsers::BaseParser
         
-        attr_reader :config_options
+        attr_reader :configuration
     
         def initialize
           super
-          @config_options = {}
+          @configuration = {}
         end
         
         def process(exp)
@@ -39,9 +39,9 @@ module RailsParser #:nodoc:
               return
             end
           
-            # Turn the call tree into nodes on @config_options, retaining the 
+            # Turn the call tree into nodes on @configuration, retaining the 
             # last segment to set the value on.
-            last_segment = call_tree.inject(@config_options) do |h, call|
+            last_segment = call_tree.inject(@configuration) do |h, call|
               h[call[:name]] ||= {}
               h[call[:name]]
             end
