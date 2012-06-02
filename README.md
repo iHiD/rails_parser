@@ -1,6 +1,6 @@
 # Rails Auditor
 
-https://secure.travis-ci.org/ihid/rails_parser.png
+[![Build Status](https://secure.travis-ci.org/ihid/rails_parser.png)](http://travis-ci.org/ihid/rails_parser)
 
 The part of railsauditor.org that scans your application and generates the information.
 
