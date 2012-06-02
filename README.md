@@ -1,5 +1,7 @@
 # Rails Auditor
 
+https://secure.travis-ci.org/ihid/rails_parser.png
+
 The part of railsauditor.org that scans your application and generates the information.
 
 ## Installation
